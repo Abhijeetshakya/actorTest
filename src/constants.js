@@ -58,3 +58,54 @@ export const REMOTE_FILTER_MAP = {
     remote: '2',
     hybrid: '3',
 };
+
+/**
+ * Keywords/suffixes used to detect a salary's pay period (e.g. "$80/hr", "$150K per year").
+ * Keys are matched as "/{key}" or "per {key}" (case-insensitive) against the raw salary text.
+ */
+export const SALARY_PERIOD_MAP = {
+    yr: 'yearly',
+    year: 'yearly',
+    annum: 'yearly',
+    hr: 'hourly',
+    hour: 'hourly',
+    mo: 'monthly',
+    month: 'monthly',
+    wk: 'weekly',
+    week: 'weekly',
+    day: 'daily',
+};
+
+/**
+ * Currency symbol/prefix to ISO 4217 code mapping, used for structured salary parsing.
+ * Longer/more specific prefixes (e.g. "C$") are checked before shorter ones (e.g. "$").
+ */
+export const CURRENCY_SYMBOL_MAP = {
+    'C$': 'CAD',
+    'A$': 'AUD',
+    '$': 'USD',
+    '€': 'EUR',
+    '£': 'GBP',
+    '₹': 'INR',
+    '¥': 'JPY',
+};
+
+/**
+ * HTTP status codes that indicate the session/proxy has been rate-limited or blocked
+ * by LinkedIn. Used to configure Crawlee's session pool blocking detection and to
+ * drive custom retry/backoff and concurrency-throttling logic.
+ */
+export const BLOCKED_STATUS_CODES = [401, 403, 429, 999];
+
+/**
+ * Text fragments that indicate LinkedIn has served a login wall, security checkpoint,
+ * or bot-challenge page instead of the expected content. Used to detect blocking that
+ * doesn't necessarily come back as a non-2xx HTTP status.
+ */
+export const CHALLENGE_MARKERS = [
+    'checkpoint/challenge',
+    'authwall',
+    'id="captcha"',
+    'class="challenge-dialog"',
+    'unusual activity from your account',
+];

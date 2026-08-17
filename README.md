@@ -28,6 +28,11 @@ This Apify actor scrapes job listings from LinkedIn's public guest-accessible en
 | `remoteFilter` | `enum` | `"any"` | `any`, `onSite`, `remote`, `hybrid` |
 | `maxConcurrency` | `integer` | `5` | Concurrent requests (1–20) |
 | `proxyConfiguration` | `object` | — | Apify proxy settings |
+| `resumeFromPreviousRun` | `boolean` | `false` | Skip jobs/companies already scraped in a prior run (persisted in the key-value store) |
+| `outputFields` | `string[]` | `[]` (all fields) | Restrict pushed records to these fields, plus id fields |
+| `webhookUrl` | `string` | — | URL to POST JSON run events to (`HIGH_ERROR_RATE`, `COMPLETED`) |
+| `notifyOnCompletion` | `boolean` | `false` | Send a webhook event when the run finishes |
+| `errorRateThreshold` | `number` | `0.3` | Blocked/failed request ratio that triggers automatic concurrency throttling and a webhook alert |
 
 ## Example Input
 
@@ -69,6 +74,28 @@ Each job listing produces a JSON object like:
 ```
 
 > **Note:** Fields like `description`, `seniorityLevel`, etc. are only available when `scrapeJobDetails` is enabled.
+
+## Resilience & Anti-Blocking
+
+- **429-aware backoff** — on a rate-limit or block response, the actor retires the session, waits with exponential backoff (2s → 4s → 8s… capped at 60s, with jitter), and retries with a fresh session/proxy.
+- **Challenge/checkpoint detection** — LinkedIn sometimes returns a login-wall or bot-checkpoint page with a `200` status. The actor scans response bodies for these patterns and treats them as failures so they get retried like any other block.
+- **Adaptive concurrency** — if the rolling blocked-request rate exceeds `errorRateThreshold` (default 30%), the actor automatically halves its concurrency ceiling and (optionally) fires a webhook alert.
+- **Resumable runs** — with `resumeFromPreviousRun: true`, the actor loads the job/company IDs it saw last time from the key-value store and skips them, so a scheduled/recurring run only scrapes what's new.
+
+## Structured Output Extras
+
+In addition to the raw `salary` and `location` strings, each job record includes parsed breakdowns:
+
+```json
+{
+    "salary": "$150,000 - $200,000",
+    "salaryParsed": { "min": 150000, "max": 200000, "currency": "USD", "period": "yearly", "raw": "$150,000 - $200,000" },
+    "location": "San Francisco, CA",
+    "locationParsed": { "city": "San Francisco", "state": "CA", "country": null, "raw": "San Francisco, CA" }
+}
+```
+
+Use `outputFields` in the input if you'd rather receive a trimmed record (e.g. `["title", "company", "salaryParsed"]`) instead of the full object.
 
 ## Performance Tips
 

@@ -1,4 +1,4 @@
-import { cleanText, extractJobId, detectWorkplaceType, extractCompanyId } from './utils.js';
+import { cleanText, extractJobId, detectWorkplaceType, extractCompanyId, parseSalary, parseLocation } from './utils.js';
 import { LINKEDIN_BASE } from './constants.js';
 
 /**
@@ -115,8 +115,10 @@ export function parseJobListing($, element) {
         companyId,
         companyLogo,
         location,
+        locationParsed: parseLocation(location),
         workplaceType,
         salary: salary || null,
+        salaryParsed: salary ? parseSalary(salary) : null,
         postedDate: postedDate || null,
         isReposted,
         jobUrl: jobUrl || null,

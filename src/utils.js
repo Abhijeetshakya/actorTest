@@ -4,6 +4,9 @@ import {
     JOB_TYPE_MAP,
     EXPERIENCE_LEVEL_MAP,
     REMOTE_FILTER_MAP,
+    SALARY_PERIOD_MAP,
+    CURRENCY_SYMBOL_MAP,
+    CHALLENGE_MARKERS,
 } from './constants.js';
 
 /**
@@ -103,4 +106,130 @@ export function extractCompanyId(value) {
     const numMatch = value.match(/\/company\/(\d+)/);
     if (numMatch) return numMatch[1];
     return null;
+}
+
+/**
+ * Parse a free-text salary string into structured min/max/currency/period fields.
+ * Handles formats like "$150,000 - $200,000", "$80K/yr", "€45.5K", "$40 - $60 per hour".
+ *
+ * @param {string} salaryText - Raw salary text as scraped from the page
+ * @returns {{min: number|null, max: number|null, currency: string|null, period: string|null, raw: string|null}}
+ */
+export function parseSalary(salaryText) {
+    const empty = { min: null, max: null, currency: null, period: null, raw: null };
+    const raw = cleanText(salaryText);
+    if (!raw) return empty;
+
+    // ─── Currency ────────────────────────────────────────────────
+    let currency = null;
+    for (const [symbol, code] of Object.entries(CURRENCY_SYMBOL_MAP)) {
+        if (raw.includes(symbol)) {
+            currency = code;
+            break;
+        }
+    }
+    if (!currency) {
+        const isoMatch = raw.match(/\b(USD|EUR|GBP|INR|JPY|CAD|AUD)\b/i);
+        if (isoMatch) currency = isoMatch[1].toUpperCase();
+    }
+
+    // ─── Pay period ──────────────────────────────────────────────
+    let period = null;
+    const lower = raw.toLowerCase();
+    for (const [suffix, value] of Object.entries(SALARY_PERIOD_MAP)) {
+        if (lower.includes(`/${suffix}`) || lower.includes(`per ${suffix}`)) {
+            period = value;
+            break;
+        }
+    }
+
+    // ─── Numeric range (handles "150,000", "150K", "150.5k") ──────
+    const numberTokens = raw.match(/[\d,]+(?:\.\d+)?\s*[kK]?/g) || [];
+    const numbers = numberTokens
+        .map((token) => {
+            const isThousands = /[kK]\s*$/.test(token);
+            const numeric = parseFloat(token.replace(/[^\d.]/g, ''));
+            if (Number.isNaN(numeric)) return null;
+            return isThousands ? numeric * 1000 : numeric;
+        })
+        .filter((n) => n !== null && n > 0);
+
+    if (numbers.length === 0) {
+        return { min: null, max: null, currency, period, raw };
+    }
+
+    const min = Math.min(...numbers);
+    const max = numbers.length > 1 ? Math.max(...numbers) : min;
+
+    // If LinkedIn didn't label the period explicitly, small figures almost always mean hourly
+    if (!period) {
+        period = max < 1000 ? 'hourly' : 'yearly';
+    }
+
+    return { min, max, currency, period, raw };
+}
+
+/**
+ * Parse a free-text location string into city/state/country components.
+ * LinkedIn location text varies widely in specificity, e.g.
+ * "San Francisco, CA", "New York, NY (Remote)", "London, England, United Kingdom",
+ * "United States". This is a best-effort heuristic split on commas.
+ *
+ * @param {string} locationText - Raw location text as scraped from the page
+ * @returns {{city: string|null, state: string|null, country: string|null, raw: string|null}}
+ */
+export function parseLocation(locationText) {
+    const empty = { city: null, state: null, country: null, raw: null };
+    const raw = cleanText(locationText);
+    if (!raw) return empty;
+
+    // Strip the workplace-type suffix LinkedIn appends, e.g. "(Remote)" / "(Hybrid)"
+    const withoutSuffix = raw.replace(/\s*\((Remote|Hybrid|On-site)\)\s*$/i, '').trim();
+    const parts = withoutSuffix.split(',').map((p) => p.trim()).filter(Boolean);
+
+    let city = null;
+    let state = null;
+    let country = null;
+
+    if (parts.length === 1) {
+        // Just one segment - usually a country or broad region, not a city
+        [country] = parts;
+    } else if (parts.length === 2) {
+        [city, state] = parts;
+    } else if (parts.length >= 3) {
+        [city, state] = parts;
+        country = parts.slice(2).join(', ');
+    }
+
+    return { city, state, country, raw };
+}
+
+/**
+ * Detect whether a fetched HTML page is actually a LinkedIn login wall, security
+ * checkpoint, or bot challenge page rather than the expected content. LinkedIn
+ * sometimes serves these with a 200 status, so status-code checks alone miss them.
+ *
+ * @param {string} html - Raw HTML body of the response
+ * @returns {boolean} True if the page looks like a challenge/block page
+ */
+export function isChallengePage(html) {
+    if (!html || typeof html !== 'string') return false;
+    return CHALLENGE_MARKERS.some((marker) => html.includes(marker));
+}
+
+/**
+ * Restrict a data record to a user-selected subset of fields (for smaller/cleaner
+ * output). `jobId` (or `companyId` for company records) is always preserved so
+ * records remain identifiable even when trimmed.
+ *
+ * @param {object} record - Full data record
+ * @param {string[]} fields - Field names to keep; empty/undefined means "keep all"
+ * @returns {object} Filtered record
+ */
+export function filterOutputFields(record, fields) {
+    if (!record || !Array.isArray(fields) || fields.length === 0) return record;
+    const alwaysKeep = new Set(['jobId', 'companyId', 'type', ...fields]);
+    return Object.fromEntries(
+        Object.entries(record).filter(([key]) => alwaysKeep.has(key))
+    );
 }

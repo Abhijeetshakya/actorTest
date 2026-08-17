@@ -5,7 +5,10 @@
  */
 import { load } from 'cheerio';
 import { parseJobListing, parseJobDetails } from './parsers.js';
-import { buildSearchUrls, cleanText, extractJobId, detectWorkplaceType, extractCompanyId } from './utils.js';
+import {
+    buildSearchUrls, cleanText, extractJobId, detectWorkplaceType, extractCompanyId,
+    parseSalary, parseLocation, isChallengePage, filterOutputFields,
+} from './utils.js';
 
 // ─── Sample HTML ─────────────────────────────────────────────────────
 const SAMPLE_SEARCH_HTML = `
@@ -145,6 +148,76 @@ assertEqual(extractCompanyId('urn:li:company:6789'), '6789', 'extracts ID from c
 assertEqual(extractCompanyId('https://www.linkedin.com/company/12345'), '12345', 'extracts ID from numeric company URL');
 assertEqual(extractCompanyId('https://www.linkedin.com/company/acme-corp'), null, 'returns null for slug-based URL');
 assertEqual(extractCompanyId(null), null, 'handles null');
+
+// ─── Test: parseSalary ────────────────────────────────────────────────
+console.log('\n🧪 Testing parseSalary()');
+const salary1 = parseSalary('$150,000 - $200,000');
+assertEqual(salary1.min, 150000, 'extracts min from range');
+assertEqual(salary1.max, 200000, 'extracts max from range');
+assertEqual(salary1.currency, 'USD', 'detects USD from $ symbol');
+assertEqual(salary1.period, 'yearly', 'defaults large figures to yearly');
+
+const salary2 = parseSalary('$40 - $60/hr');
+assertEqual(salary2.min, 40, 'extracts min hourly rate');
+assertEqual(salary2.max, 60, 'extracts max hourly rate');
+assertEqual(salary2.period, 'hourly', 'detects hourly period from /hr suffix');
+
+const salary3 = parseSalary('€45.5K per year');
+assertEqual(salary3.min, 45500, 'converts K suffix to full number');
+assertEqual(salary3.currency, 'EUR', 'detects EUR from € symbol');
+assertEqual(salary3.period, 'yearly', 'detects yearly period from "per year"');
+
+const salary4 = parseSalary(null);
+assertEqual(salary4.min, null, 'handles null salary');
+assertEqual(salary4.raw, null, 'raw is null for null salary');
+
+const salary5 = parseSalary('Competitive');
+assertEqual(salary5.min, null, 'returns null min when no numbers present');
+assertEqual(salary5.raw, 'Competitive', 'still preserves raw text');
+
+// ─── Test: parseLocation ──────────────────────────────────────────────
+console.log('\n🧪 Testing parseLocation()');
+const loc1 = parseLocation('San Francisco, CA');
+assertEqual(loc1.city, 'San Francisco', 'extracts city');
+assertEqual(loc1.state, 'CA', 'extracts state');
+assertEqual(loc1.country, null, 'no country for 2-part location');
+
+const loc2 = parseLocation('New York, NY (Remote)');
+assertEqual(loc2.city, 'New York', 'strips workplace suffix before parsing city');
+assertEqual(loc2.state, 'NY', 'strips workplace suffix before parsing state');
+
+const loc3 = parseLocation('London, England, United Kingdom');
+assertEqual(loc3.city, 'London', 'extracts city from 3-part location');
+assertEqual(loc3.state, 'England', 'extracts region from 3-part location');
+assertEqual(loc3.country, 'United Kingdom', 'extracts country from 3-part location');
+
+const loc4 = parseLocation('United States');
+assertEqual(loc4.country, 'United States', 'single segment treated as country');
+assertEqual(loc4.city, null, 'no city for single-segment location');
+
+const loc5 = parseLocation(null);
+assertEqual(loc5.raw, null, 'handles null location');
+
+// ─── Test: isChallengePage ────────────────────────────────────────────
+console.log('\n🧪 Testing isChallengePage()');
+assert(isChallengePage('<html>...authwall...</html>'), 'detects authwall marker');
+assert(isChallengePage('<div class="challenge-dialog">Verify</div>'), 'detects challenge-dialog marker');
+assert(!isChallengePage('<html><body>Senior Software Engineer</body></html>'), 'normal page not flagged');
+assert(!isChallengePage(null), 'handles null body');
+assert(!isChallengePage(''), 'handles empty body');
+
+// ─── Test: filterOutputFields ─────────────────────────────────────────
+console.log('\n🧪 Testing filterOutputFields()');
+const fullRecord = { jobId: '123', title: 'Engineer', company: 'Acme', location: 'SF', salary: '$100K' };
+const filtered1 = filterOutputFields(fullRecord, ['title', 'company']);
+assertEqual(Object.keys(filtered1).sort().join(','), 'company,jobId,title', 'keeps only selected fields plus jobId');
+assert(!('location' in filtered1), 'excludes unselected field');
+
+const filtered2 = filterOutputFields(fullRecord, []);
+assertEqual(Object.keys(filtered2).length, 5, 'empty field list keeps all fields');
+
+const filtered3 = filterOutputFields(fullRecord, undefined);
+assertEqual(Object.keys(filtered3).length, 5, 'undefined field list keeps all fields');
 
 // ─── Test: buildSearchUrls ───────────────────────────────────────────
 console.log('\n🧪 Testing buildSearchUrls()');
