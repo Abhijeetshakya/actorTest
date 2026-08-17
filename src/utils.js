@@ -72,3 +72,35 @@ export function extractJobId(url) {
 export function parseDate(dateText) {
     return cleanText(dateText);
 }
+
+/**
+ * Derive the workplace type (Remote / Hybrid / On-site) from a location string.
+ * LinkedIn appends "(Remote)" or "(Hybrid)" to the location text when applicable;
+ * anything else is treated as on-site.
+ *
+ * @param {string} locationText - Raw location text, e.g. "New York, NY (Remote)"
+ * @returns {string|null} 'Remote' | 'Hybrid' | 'On-site' | null
+ */
+export function detectWorkplaceType(locationText) {
+    if (!locationText) return null;
+    const text = locationText.toLowerCase();
+    if (text.includes('remote')) return 'Remote';
+    if (text.includes('hybrid')) return 'Hybrid';
+    return 'On-site';
+}
+
+/**
+ * Extract LinkedIn's numeric company ID from a data-entity-urn attribute
+ * (e.g. "urn:li:organization:12345") or a company URL (e.g. ".../company/12345").
+ *
+ * @param {string} value - URN string or company URL
+ * @returns {string|null} Numeric company ID or null
+ */
+export function extractCompanyId(value) {
+    if (!value) return null;
+    const urnMatch = value.match(/urn:li:(?:organization|company|fsd_company):(\d+)/);
+    if (urnMatch) return urnMatch[1];
+    const numMatch = value.match(/\/company\/(\d+)/);
+    if (numMatch) return numMatch[1];
+    return null;
+}

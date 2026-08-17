@@ -4,6 +4,7 @@
 export const LABELS = {
     SEARCH: 'SEARCH',
     DETAIL: 'DETAIL',
+    COMPANY: 'COMPANY',
 };
 
 /**

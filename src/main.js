@@ -1,7 +1,7 @@
 import { Actor } from 'apify';
 import { CheerioCrawler, log } from 'crawlee';
 import { buildSearchUrls } from './utils.js';
-import { parseJobListing, parseJobDetails } from './parsers.js';
+import { parseJobListing, parseJobDetails, parseCompanyDetails } from './parsers.js';
 import { LABELS, LINKEDIN_BASE } from './constants.js';
 
 await Actor.init();
@@ -13,6 +13,7 @@ const {
     location = 'United States',
     maxItems = 100,
     scrapeJobDetails = false,
+    scrapeCompanyDetails = false,
     datePosted = 'any',
     jobType = 'any',
     experienceLevel = 'any',
@@ -27,6 +28,7 @@ log.info('Starting LinkedIn Jobs Scraper', {
     location,
     maxItems,
     scrapeJobDetails,
+    scrapeCompanyDetails,
 });
 
 // ─── Proxy ───────────────────────────────────────────────────────────
@@ -38,6 +40,24 @@ const proxyConfiguration = proxyConfig
 let pushedItems = 0;      // Items actually pushed to dataset
 let queuedItems = 0;      // Items queued (pushed + pending detail pages)
 const seenJobIds = new Set(); // Deduplication across search queries
+const seenCompanyIds = new Set(); // Deduplication of company page requests
+
+/**
+ * Queue a company "about" page for scraping, if enabled and not already seen.
+ * Company data is pushed to the dataset as its own record (type: 'COMPANY'),
+ * keyed by companyId so it can be joined with job records afterward.
+ */
+async function maybeQueueCompany(companyId, companyUrl) {
+    if (!scrapeCompanyDetails || !companyId || !companyUrl) return;
+    if (seenCompanyIds.has(companyId)) return;
+    seenCompanyIds.add(companyId);
+
+    await crawler.addRequests([{
+        url: `${companyUrl.replace(/\/$/, '')}/about`,
+        userData: { label: LABELS.COMPANY, companyId, companyUrl },
+        uniqueKey: `company-${companyId}`,
+    }]);
+}
 
 // ─── Build search URLs ──────────────────────────────────────────────
 let searchUrls;
@@ -140,6 +160,12 @@ const crawler = new CheerioCrawler({
             if (jobsToPush.length > 0) {
                 await Actor.pushData(jobsToPush);
                 pushedItems += jobsToPush.length;
+
+                if (scrapeCompanyDetails) {
+                    for (const job of jobsToPush) {
+                        await maybeQueueCompany(job.companyId, job.companyUrl);
+                    }
+                }
             }
 
             // Queue detail pages
@@ -175,9 +201,19 @@ const crawler = new CheerioCrawler({
             await Actor.pushData(detailedData);
             pushedItems++;
 
+            await maybeQueueCompany(detailedData.companyId, detailedData.companyUrl);
+
             if (pushedItems % 10 === 0) {
                 log.info(`Progress: ${pushedItems}/${maxItems} jobs scraped`);
             }
+
+        // ── COMPANY "about" page ─────────────────────────────────
+        } else if (label === LABELS.COMPANY) {
+            log.debug(`Parsing company details: ${request.url}`);
+            const { companyId, companyUrl } = request.userData;
+            const companyData = parseCompanyDetails($, companyId, companyUrl);
+
+            await Actor.pushData({ type: 'COMPANY', ...companyData });
         }
     },
 

@@ -1,4 +1,4 @@
-import { cleanText, extractJobId } from './utils.js';
+import { cleanText, extractJobId, detectWorkplaceType, extractCompanyId } from './utils.js';
 import { LINKEDIN_BASE } from './constants.js';
 
 /**
@@ -66,6 +66,12 @@ export function parseJobListing($, element) {
     );
     const company = cleanText($company.first().text());
 
+    // The selector above can match a wrapping <h4> before the <a> inside it,
+    // and .attr('href') on a Cheerio set returns the FIRST matched element's
+    // attribute — so we explicitly resolve the link itself, not just $company.
+    const $companyLink = $company.first().is('a') ? $company.first() : $company.find('a').first();
+    const companyUrl = $companyLink.attr('href') || null;
+
     // ─── Location ────────────────────────────────────────────────
     const $location = $target.find(
         '.job-search-card__location, .base-search-card__metadata span:not(time)'
@@ -84,13 +90,35 @@ export function parseJobListing($, element) {
     );
     const salary = cleanText($salary.text());
 
+    // ─── Workplace Type (Remote / Hybrid / On-site) ───────────────
+    const workplaceType = detectWorkplaceType(location);
+
+    // ─── Reposted flag ─────────────────────────────────────────────
+    // LinkedIn sometimes marks a listing as reposted in the metadata block
+    const metadataText = cleanText($target.find('.base-search-card__metadata').text()).toLowerCase();
+    const isReposted = metadataText.includes('repost');
+
+    // ─── Company Logo ────────────────────────────────────────────
+    const $logo = $target.find('img.artdeco-entity-image, .search-entity-media img, img[data-delayed-url]');
+    const companyLogo = $logo.attr('data-delayed-url') || $logo.attr('src') || null;
+
+    // ─── Company ID ──────────────────────────────────────────────
+    const companyId = extractCompanyId(companyUrl)
+        || extractCompanyId($target.find('[data-entity-urn]').attr('data-entity-urn'))
+        || null;
+
     return {
         jobId,
         title,
         company,
+        companyUrl,
+        companyId,
+        companyLogo,
         location,
+        workplaceType,
         salary: salary || null,
         postedDate: postedDate || null,
+        isReposted,
         jobUrl: jobUrl || null,
         scrapedAt: new Date().toISOString(),
     };
@@ -153,18 +181,94 @@ export function parseJobDetails($, jobData) {
         $('.topcard__org-name-link, .top-card-layout__second-subline a').text()
     );
 
+    // ─── Company Logo (fallback to detail page if listing had none) ─
+    const $detailLogo = $('.top-card-layout__entity-image, img.top-card-layout__entity-image, .artdeco-entity-image');
+    const companyLogo = jobData.companyLogo || $detailLogo.attr('data-delayed-url') || $detailLogo.attr('src') || null;
+
+    // ─── Company ID (fallback to detail page if listing had none) ───
+    const companyId = jobData.companyId
+        || extractCompanyId($('[data-entity-urn]').first().attr('data-entity-urn'))
+        || extractCompanyId(companyUrl)
+        || null;
+
+    // ─── Required Skills / Qualifications ───────────────────────────
+    // LinkedIn surfaces these as a distinct list, separate from the free-text description
+    const skills = [];
+    $(
+        '.job-details-how-you-match__skills-item-subtitle, .job-criteria__text--skill, ' +
+        '.description__skill-item, .skills-section li'
+    ).each((_, el) => {
+        const skill = cleanText($(el).text());
+        if (skill) skills.push(skill);
+    });
+
+    // ─── Easy Apply vs External Application ─────────────────────────
+    const $applyLink = $(
+        'a.apply-link, a[data-tracking-control-name*="apply"], .jobs-apply-button, a.top-card-layout__cta'
+    );
+    const applyText = cleanText($applyLink.text());
+    const easyApply = /easy apply/i.test(applyText);
+    let applyUrl = $applyLink.attr('href') || null;
+    if (applyUrl && !applyUrl.startsWith('http')) {
+        applyUrl = `${LINKEDIN_BASE}${applyUrl}`;
+    }
+
     return {
         ...jobData,
         // Override with detail-page values if listing values were empty
         title: jobData.title || detailTitle,
         company: jobData.company || detailCompany,
+        companyLogo,
+        companyId,
         description: description || null,
         descriptionHtml: descriptionHtml || null,
         seniorityLevel: criteria.seniorityLevel || null,
         employmentType: criteria.employmentType || null,
         jobFunction: criteria.jobFunction || null,
         industries: criteria.industries || null,
+        skills: skills.length > 0 ? skills : null,
         applicants: applicantsText || null,
         companyUrl: companyUrl || null,
+        easyApply,
+        applyUrl,
+    };
+}
+
+/**
+ * Parse a LinkedIn company "about" page for size, industry, and other
+ * company-level details. Used only when `scrapeCompanyDetails` is enabled,
+ * since it requires a separate request per unique company.
+ *
+ * @param {import('cheerio').CheerioAPI} $ - Cheerio instance
+ * @param {string} companyId - Numeric LinkedIn company ID
+ * @param {string} companyUrl - Company page URL
+ * @returns {object} Parsed company data
+ */
+export function parseCompanyDetails($, companyId, companyUrl) {
+    const name = cleanText(
+        $('.org-top-card-summary__title, .top-card-layout__title').first().text()
+    );
+
+    // The "about" page lists industry, size, HQ, etc. as a flat list of info items;
+    // company size is the one that mentions "employees".
+    const infoItems = [];
+    $('.org-top-card-summary-info-list__info-item').each((_, el) => {
+        const value = cleanText($(el).text());
+        if (value) infoItems.push(value);
+    });
+
+    const companySize = infoItems.find(item => /employee/i.test(item)) || null;
+    const industry = infoItems.find(item => item !== companySize) || null;
+
+    const website = $('a[data-tracking-control-name*="about_website"]').attr('href') || null;
+
+    return {
+        companyId: companyId || null,
+        companyUrl: companyUrl || null,
+        name: name || null,
+        industry,
+        companySize,
+        website,
+        scrapedAt: new Date().toISOString(),
     };
 }

@@ -5,7 +5,7 @@
  */
 import { load } from 'cheerio';
 import { parseJobListing, parseJobDetails } from './parsers.js';
-import { buildSearchUrls, cleanText, extractJobId } from './utils.js';
+import { buildSearchUrls, cleanText, extractJobId, detectWorkplaceType, extractCompanyId } from './utils.js';
 
 // ─── Sample HTML ─────────────────────────────────────────────────────
 const SAMPLE_SEARCH_HTML = `
@@ -130,6 +130,22 @@ assertEqual(extractJobId(null), null, 'handles null');
 assertEqual(extractJobId(''), null, 'handles empty string');
 assertEqual(extractJobId('https://www.linkedin.com/feed'), null, 'returns null for non-job URL');
 
+// ─── Test: detectWorkplaceType ───────────────────────────────────────
+console.log('\n🧪 Testing detectWorkplaceType()');
+assertEqual(detectWorkplaceType('New York, NY (Remote)'), 'Remote', 'detects remote');
+assertEqual(detectWorkplaceType('Austin, TX (Hybrid)'), 'Hybrid', 'detects hybrid');
+assertEqual(detectWorkplaceType('San Francisco, CA'), 'On-site', 'defaults to on-site');
+assertEqual(detectWorkplaceType(null), null, 'handles null');
+assertEqual(detectWorkplaceType(''), null, 'handles empty string');
+
+// ─── Test: extractCompanyId ──────────────────────────────────────────
+console.log('\n🧪 Testing extractCompanyId()');
+assertEqual(extractCompanyId('urn:li:organization:12345'), '12345', 'extracts ID from organization URN');
+assertEqual(extractCompanyId('urn:li:company:6789'), '6789', 'extracts ID from company URN');
+assertEqual(extractCompanyId('https://www.linkedin.com/company/12345'), '12345', 'extracts ID from numeric company URL');
+assertEqual(extractCompanyId('https://www.linkedin.com/company/acme-corp'), null, 'returns null for slug-based URL');
+assertEqual(extractCompanyId(null), null, 'handles null');
+
 // ─── Test: buildSearchUrls ───────────────────────────────────────────
 console.log('\n🧪 Testing buildSearchUrls()');
 const urls = buildSearchUrls({
@@ -178,6 +194,9 @@ assertEqual(job1.jobId, '3912345678', 'extracts job ID from URL');
 assert(job1.jobUrl.includes('/jobs/view/3912345678'), 'has clean job URL');
 assert(!job1.jobUrl.includes('trk='), 'strips tracking params');
 assert(job1.scrapedAt, 'includes scrapedAt timestamp');
+assertEqual(job1.workplaceType, 'On-site', 'derives on-site workplace type');
+assertEqual(job1.companyUrl, 'https://www.linkedin.com/company/acme-corp', 'extracts company URL at listing level');
+assertEqual(job1.isReposted, false, 'not flagged as reposted');
 
 const job2 = parseJobListing($search, listItems[1]);
 assert(job2 !== null, 'parses second job card');
@@ -186,6 +205,7 @@ assertEqual(job2.company, 'TechCo Inc', 'second job company');
 assertEqual(job2.location, 'New York, NY (Remote)', 'second job location');
 assertEqual(job2.salary, null, 'null salary when not present');
 assertEqual(job2.jobId, '3912345679', 'second job ID');
+assertEqual(job2.workplaceType, 'Remote', 'derives remote workplace type from location text');
 
 const job3 = parseJobListing($search, listItems[2]);
 assert(job3 === null, 'returns null for non-job list items');
@@ -213,6 +233,9 @@ assertEqual(detailedJob.industries, 'Technology, Information and Internet', 'ext
 assert(detailedJob.applicants.includes('200'), 'extracts applicant count');
 assertEqual(detailedJob.companyUrl, 'https://www.linkedin.com/company/acme-corp', 'extracts company URL');
 assert(detailedJob.descriptionHtml !== null, 'includes HTML description');
+assertEqual(detailedJob.skills, null, 'skills null when no skills markup present');
+assertEqual(detailedJob.easyApply, false, 'easyApply false when no apply button present');
+assertEqual(detailedJob.applyUrl, null, 'applyUrl null when no apply link present');
 
 // Fallback test - empty base data
 const emptyBase = { jobId: '123', title: '', company: '' };
