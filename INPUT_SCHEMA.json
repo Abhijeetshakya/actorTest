@@ -1,0 +1,139 @@
+{
+    "title": "LinkedIn Jobs Scraper",
+    "description": "Scrape LinkedIn job listings via guest (no-login) endpoints. Configure search terms, filters, detail scraping, and anti-blocking/resilience options below.",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "searchQueries": {
+            "title": "Search queries",
+            "type": "array",
+            "description": "Job search keywords. One search is run per query.",
+            "editor": "stringList",
+            "prefill": ["Software Engineer"],
+            "default": ["Software Engineer"]
+        },
+        "location": {
+            "title": "Location",
+            "type": "string",
+            "description": "Location filter applied to all search queries (e.g. \"United States\", \"San Francisco\", \"Remote\").",
+            "editor": "textfield",
+            "default": "United States"
+        },
+        "startUrls": {
+            "title": "Start URLs (advanced)",
+            "type": "array",
+            "description": "Optional: provide LinkedIn job search URLs directly instead of generating them from searchQueries/location/filters. If set, searchQueries and the filter options below are ignored.",
+            "editor": "requestListSources"
+        },
+        "maxItems": {
+            "title": "Max items",
+            "type": "integer",
+            "description": "Maximum number of jobs to scrape across all search queries.",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100
+        },
+        "datePosted": {
+            "title": "Date posted",
+            "type": "string",
+            "description": "Filter jobs by how recently they were posted.",
+            "editor": "select",
+            "enum": ["any", "past24hours", "pastWeek", "pastMonth"],
+            "enumTitles": ["Any time", "Past 24 hours", "Past week", "Past month"],
+            "default": "any"
+        },
+        "jobType": {
+            "title": "Job type",
+            "type": "string",
+            "description": "Filter by employment type.",
+            "editor": "select",
+            "enum": ["any", "fullTime", "partTime", "contract", "temporary", "internship"],
+            "enumTitles": ["Any", "Full-time", "Part-time", "Contract", "Temporary", "Internship"],
+            "default": "any"
+        },
+        "experienceLevel": {
+            "title": "Experience level",
+            "type": "string",
+            "description": "Filter by seniority/experience level.",
+            "editor": "select",
+            "enum": ["any", "internship", "entryLevel", "associate", "midSenior", "director", "executive"],
+            "enumTitles": ["Any", "Internship", "Entry level", "Associate", "Mid-Senior", "Director", "Executive"],
+            "default": "any"
+        },
+        "remoteFilter": {
+            "title": "Remote / on-site",
+            "type": "string",
+            "description": "Filter by workplace type.",
+            "editor": "select",
+            "enum": ["any", "onSite", "remote", "hybrid"],
+            "enumTitles": ["Any", "On-site", "Remote", "Hybrid"],
+            "default": "any"
+        },
+        "scrapeJobDetails": {
+            "title": "Scrape job details",
+            "type": "boolean",
+            "description": "Visit each job's detail page to extract the full description, seniority level, employment type, skills, and applicant count. Slower and uses more requests.",
+            "default": false
+        },
+        "scrapeCompanyDetails": {
+            "title": "Scrape company details",
+            "type": "boolean",
+            "description": "Visit each unique company's \"about\" page to extract industry and company size. Adds one extra request per unique company.",
+            "default": false
+        },
+        "outputFields": {
+            "title": "Output fields (advanced)",
+            "type": "array",
+            "description": "Restrict each pushed record to only these field names, to reduce dataset size. Leave empty to keep all fields. ID fields (jobId, companyId, type) are always kept.",
+            "editor": "stringList",
+            "default": []
+        },
+        "maxConcurrency": {
+            "title": "Max concurrency",
+            "type": "integer",
+            "description": "Maximum number of concurrent requests.",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 5
+        },
+        "errorRateThreshold": {
+            "title": "Error rate threshold",
+            "type": "number",
+            "description": "If the rolling fraction of blocked/failed requests exceeds this value (after at least 10 requests), the actor automatically halves its concurrency and, if configured, sends a webhook alert.",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0.3
+        },
+        "proxyConfiguration": {
+            "title": "Proxy configuration",
+            "type": "object",
+            "description": "Recommended: use Apify residential proxies for best success rates against LinkedIn's anti-bot protection.",
+            "editor": "proxy",
+            "default": {
+                "useApifyProxy": true,
+                "apifyProxyGroups": ["RESIDENTIAL"]
+            }
+        },
+        "resumeFromPreviousRun": {
+            "title": "Resume from previous run",
+            "type": "boolean",
+            "description": "Skip jobs and companies already scraped in a prior run of this actor (tracked via the key-value store), so a scheduled/recurring run only scrapes what's new.",
+            "default": false,
+            "sectionCaption": "Notifications & webhooks",
+            "sectionDescription": "Optional webhook notifications sent by the actor itself, separate from Apify platform webhooks."
+        },
+        "webhookUrl": {
+            "title": "Webhook URL",
+            "type": "string",
+            "description": "URL to POST JSON events to: HIGH_ERROR_RATE (when errorRateThreshold is exceeded) and, if enabled below, COMPLETED.",
+            "editor": "textfield"
+        },
+        "notifyOnCompletion": {
+            "title": "Notify on completion",
+            "type": "boolean",
+            "description": "Send a COMPLETED webhook event (to webhookUrl) with a run summary when scraping finishes.",
+            "default": false
+        }
+    },
+    "required": ["searchQueries", "location"]
+}
