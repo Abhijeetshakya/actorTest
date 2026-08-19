@@ -85,10 +85,24 @@ export function parseJobListing($, element) {
     const postedDate = $date.attr('datetime') || cleanText($date.text());
 
     // ─── Salary ──────────────────────────────────────────────────
+    // LinkedIn doesn't consistently wrap salary in a dedicated element on the
+    // guest search cards - the class name varies (and is sometimes absent
+    // entirely even when a "$X - $Y" range is visible in the metadata row).
+    // Try the known selectors first, then fall back to pattern-matching the
+    // full metadata text for a currency-prefixed figure.
     const $salary = $target.find(
-        '.job-search-card__salary-info, .base-search-card__metadata .salary-info'
+        '.job-search-card__salary-info, .base-search-card__metadata .salary-info, ' +
+        '.job-search-card__salary, [class*="salary" i]'
     );
-    const salary = cleanText($salary.text());
+    let salary = cleanText($salary.text());
+
+    if (!salary) {
+        const metadataFullText = cleanText($target.find('.base-search-card__metadata').text());
+        const salaryMatch = metadataFullText.match(
+            /[$€£₹¥]\s?[\d,.]+(?:\.\d+)?\s?[kK]?(?:\s*-\s*[$€£₹¥]?\s?[\d,.]+(?:\.\d+)?\s?[kK]?)?(?:\s*\/\s*(?:yr|hr|mo|wk|year|hour|month|week))?/
+        );
+        if (salaryMatch) salary = cleanText(salaryMatch[0]);
+    }
 
     // ─── Workplace Type (Remote / Hybrid / On-site) ───────────────
     const workplaceType = detectWorkplaceType(location);
