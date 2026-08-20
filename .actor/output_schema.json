@@ -1,0 +1,25 @@
+{
+    "actorOutputSchemaVersion": 1,
+    "title": "Output schema of LinkedIn Jobs Scraper",
+    "description": "Scraped LinkedIn job listings, with optional company records when scrapeCompanyDetails is enabled.",
+    "properties": {
+        "jobs": {
+            "type": "string",
+            "title": "Scraped Jobs",
+            "description": "Job listings scraped from LinkedIn, including detail-page fields when scrapeJobDetails is enabled.",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=overview"
+        },
+        "jobDetails": {
+            "type": "string",
+            "title": "Job Details View",
+            "description": "Same dataset, filtered to the detail-level fields (skills, seniority, Easy Apply, etc.).",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=details"
+        },
+        "companies": {
+            "type": "string",
+            "title": "Company Records",
+            "description": "Company-level records (size, industry, website), only present when scrapeCompanyDetails is enabled.",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=companies"
+        }
+    }
+}

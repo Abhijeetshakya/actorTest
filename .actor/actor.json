@@ -1,51 +1,7 @@
 {
-  "actorSpecification": 1,
-  "name": "linkedin-jobs-scraper",
-  "title": "LinkedIn Jobs Scraper",
-  "description": "Scrapes LinkedIn job listings at high speed using HTTP-only requests. No login or cookies required.",
-  "version": "1.0.0",
-  "buildTag": "latest",
-  "environmentVariables": {},
-  "dockerfile": "./Dockerfile",
-  "input": "./input_schema.json",
-  "storages": {
-    "dataset": {
-      "actorSpecification": 1,
-      "title": "LinkedIn Jobs",
-      "views": {
-        "jobs": {
-          "title": "LinkedIn Jobs",
-          "transformation": {
-            "fields": [
-              "jobId",
-              "title",
-              "company",
-              "location",
-              "salary",
-              "jobUrl",
-              "postedDate",
-              "description",
-              "employmentType",
-              "seniorityLevel",
-              "industries",
-              "jobFunction",
-              "applicants",
-              "companyUrl",
-              "scrapedAt"
-            ]
-          },
-          "display": {
-            "component": "table",
-            "properties": {
-              "title": { "label": "Job Title", "format": "text" },
-              "company": { "label": "Company", "format": "text" },
-              "location": { "label": "Location", "format": "text" },
-              "salary": { "label": "Salary", "format": "text" },
-              "jobUrl": { "label": "URL", "format": "link" }
-            }
-          }
-        }
-      }
-    }
-  }
+    "actorSpecification": 1,
+    "name": "linkedin-jobs-scraper",
+    "title": "LinkedIn Jobs Scraper",
+    "version": "1.0.0",
+    "output": "./output_schema.json"
 }
