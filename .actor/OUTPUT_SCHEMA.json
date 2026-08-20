@@ -1,0 +1,237 @@
+{
+    "actorSpecification": 1,
+    "fields": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "LinkedIn Jobs Scraper output",
+        "type": "object",
+        "properties": {
+            "jobId": {
+                "type": "string",
+                "title": "Job ID",
+                "description": "LinkedIn's numeric job posting ID"
+            },
+            "title": {
+                "type": "string",
+                "title": "Job Title"
+            },
+            "company": {
+                "type": "string",
+                "title": "Company Name"
+            },
+            "companyUrl": {
+                "type": ["string", "null"],
+                "title": "Company URL"
+            },
+            "companyId": {
+                "type": ["string", "null"],
+                "title": "Company ID",
+                "description": "LinkedIn's numeric company ID"
+            },
+            "companyLogo": {
+                "type": ["string", "null"],
+                "title": "Company Logo URL"
+            },
+            "location": {
+                "type": "string",
+                "title": "Location"
+            },
+            "workplaceType": {
+                "type": ["string", "null"],
+                "title": "Workplace Type",
+                "description": "Remote, Hybrid, or On-site — derived from the location text"
+            },
+            "salary": {
+                "type": ["string", "null"],
+                "title": "Salary Range"
+            },
+            "postedDate": {
+                "type": ["string", "null"],
+                "title": "Posted Date"
+            },
+            "isReposted": {
+                "type": "boolean",
+                "title": "Reposted",
+                "description": "Whether LinkedIn flagged this listing as reposted"
+            },
+            "jobUrl": {
+                "type": ["string", "null"],
+                "title": "Job URL"
+            },
+            "scrapedAt": {
+                "type": "string",
+                "title": "Scraped At",
+                "description": "ISO timestamp of when this record was scraped"
+            },
+            "description": {
+                "type": ["string", "null"],
+                "title": "Job Description",
+                "description": "Plain-text description. Only present when scrapeJobDetails is enabled."
+            },
+            "descriptionHtml": {
+                "type": ["string", "null"],
+                "title": "Job Description (HTML)",
+                "description": "Only present when scrapeJobDetails is enabled."
+            },
+            "seniorityLevel": {
+                "type": ["string", "null"],
+                "title": "Seniority Level",
+                "description": "Only present when scrapeJobDetails is enabled."
+            },
+            "employmentType": {
+                "type": ["string", "null"],
+                "title": "Employment Type",
+                "description": "Only present when scrapeJobDetails is enabled."
+            },
+            "jobFunction": {
+                "type": ["string", "null"],
+                "title": "Job Function",
+                "description": "Only present when scrapeJobDetails is enabled."
+            },
+            "industries": {
+                "type": ["string", "null"],
+                "title": "Industries",
+                "description": "Only present when scrapeJobDetails is enabled."
+            },
+            "skills": {
+                "type": ["array", "null"],
+                "title": "Required Skills",
+                "items": { "type": "string" },
+                "description": "Only present when scrapeJobDetails is enabled."
+            },
+            "applicants": {
+                "type": ["string", "null"],
+                "title": "Applicant Count",
+                "description": "Only present when scrapeJobDetails is enabled."
+            },
+            "easyApply": {
+                "type": "boolean",
+                "title": "Easy Apply",
+                "description": "Only meaningful when scrapeJobDetails is enabled."
+            },
+            "applyUrl": {
+                "type": ["string", "null"],
+                "title": "Application URL",
+                "description": "Only present when scrapeJobDetails is enabled."
+            },
+            "detailScrapeFailed": {
+                "type": "boolean",
+                "title": "Detail Scrape Failed",
+                "description": "Present and true only if the detail page request failed; listing data is still returned."
+            },
+            "type": {
+                "type": "string",
+                "title": "Record Type",
+                "description": "Only present on company records, with the value 'COMPANY'. Absent on job records."
+            },
+            "name": {
+                "type": ["string", "null"],
+                "title": "Company Name (company record)",
+                "description": "Only present on company records, when scrapeCompanyDetails is enabled."
+            },
+            "industry": {
+                "type": ["string", "null"],
+                "title": "Company Industry (company record)",
+                "description": "Only present on company records, when scrapeCompanyDetails is enabled."
+            },
+            "companySize": {
+                "type": ["string", "null"],
+                "title": "Company Size",
+                "description": "Only present on company records, when scrapeCompanyDetails is enabled."
+            },
+            "website": {
+                "type": ["string", "null"],
+                "title": "Company Website",
+                "description": "Only present on company records, when scrapeCompanyDetails is enabled."
+            }
+        }
+    },
+    "views": {
+        "overview": {
+            "title": "Jobs Overview",
+            "description": "Core job listing fields",
+            "transformation": {
+                "fields": [
+                    "title",
+                    "company",
+                    "location",
+                    "workplaceType",
+                    "salary",
+                    "postedDate",
+                    "isReposted",
+                    "jobUrl"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "title": { "label": "Title", "format": "text" },
+                    "company": { "label": "Company", "format": "text" },
+                    "location": { "label": "Location", "format": "text" },
+                    "workplaceType": { "label": "Workplace", "format": "text" },
+                    "salary": { "label": "Salary", "format": "text" },
+                    "postedDate": { "label": "Posted", "format": "text" },
+                    "isReposted": { "label": "Reposted", "format": "boolean" },
+                    "jobUrl": { "label": "Job URL", "format": "link" }
+                }
+            }
+        },
+        "details": {
+            "title": "Job Details",
+            "description": "Fields populated when scrapeJobDetails is enabled",
+            "transformation": {
+                "fields": [
+                    "title",
+                    "company",
+                    "seniorityLevel",
+                    "employmentType",
+                    "jobFunction",
+                    "industries",
+                    "skills",
+                    "applicants",
+                    "easyApply",
+                    "applyUrl"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "title": { "label": "Title", "format": "text" },
+                    "company": { "label": "Company", "format": "text" },
+                    "seniorityLevel": { "label": "Seniority", "format": "text" },
+                    "employmentType": { "label": "Employment Type", "format": "text" },
+                    "jobFunction": { "label": "Job Function", "format": "text" },
+                    "industries": { "label": "Industries", "format": "text" },
+                    "skills": { "label": "Skills", "format": "array" },
+                    "applicants": { "label": "Applicants", "format": "text" },
+                    "easyApply": { "label": "Easy Apply", "format": "boolean" },
+                    "applyUrl": { "label": "Apply URL", "format": "link" }
+                }
+            }
+        },
+        "companies": {
+            "title": "Companies",
+            "description": "Company records — only present when scrapeCompanyDetails is enabled",
+            "transformation": {
+                "fields": [
+                    "name",
+                    "companyId",
+                    "industry",
+                    "companySize",
+                    "website",
+                    "companyUrl"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "name": { "label": "Company Name", "format": "text" },
+                    "companyId": { "label": "Company ID", "format": "text" },
+                    "industry": { "label": "Industry", "format": "text" },
+                    "companySize": { "label": "Company Size", "format": "text" },
+                    "website": { "label": "Website", "format": "link" },
+                    "companyUrl": { "label": "LinkedIn URL", "format": "link" }
+                }
+            }
+        }
+    }
+}
